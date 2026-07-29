@@ -1,0 +1,153 @@
+var fs = use("std:fs");
+var math = use("lib:math");
+var config = use("doom/game/config.ky");
+var rl = use("doom/game/raylib.ky");
+var map = use("doom/environment/map.ky");
+var player_mod = use("doom/player");
+var raycaster = use("doom/graphics/raycaster.ky");
+var minimap_mod = use("doom/environment/minimap.ky");
+var weapon_mod = use("doom/player/weapon.ky");
+var entity_mod = use("doom/environment/entity.ky");
+var hud_mod = use("doom/game/hud.ky");
+
+class GameEngine {
+    fn __init__(self) {
+        rl.InitWindow(config.SCREEN_WIDTH, config.SCREEN_HEIGHT, "Kyro Doom Engine");
+        rl.SetTargetFPS(60);
+
+        self.ensure_default_texture();
+        var texture_path = fs.exists("assets/wall.png") ? "assets/wall.png" : "assets/wall.bmp";
+        self.wall_texture = rl.LoadTexture(texture_path);
+
+        self.reset_game();
+    }
+
+    fn ensure_default_texture(self) {
+        if (!fs.exists("assets")) {
+            fs.create_dir("assets", true);
+        }
+        if (!fs.exists("assets/wall.png") and !fs.exists("assets/wall.bmp")) {
+            var bytes = [
+                0x42, 0x4D, 0x36, 0x30, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x36, 0x00, 0x00, 0x00, 0x28, 0x00, 0x00, 0x00, 0x40, 0x00,
+                0x00, 0x00, 0x40, 0x00, 0x00, 0x00, 0x01, 0x00, 0x18, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x30, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+            ];
+
+            for (var y = 63; y >= 0; y -= 1) {
+                for (var x = 0; x < 64; x += 1) {
+                    var mortar = (y % 16 == 0) or ((x % 16 == 0) and ((y / 16).floor() % 2 == 0)) or ((x % 16 == 8) and ((y / 16).floor() % 2 == 1));
+                    if (mortar) {
+                        bytes.push(30); bytes.push(30); bytes.push(30);
+                    } else {
+                        bytes.push(22); bytes.push(28); bytes.push(110);
+                    }
+                }
+            }
+            fs.write_bytes("assets/wall.bmp", bytes);
+        }
+    }
+
+    fn reset_game(self) {
+        self.player = player_mod.Player(2.5, 1.5, 0.0);
+        self.weapon = weapon_mod.Weapon();
+        self.enemies = [
+            entity_mod.Enemy(5.5, 3.5),
+            entity_mod.Enemy(8.5, 8.5),
+            entity_mod.Enemy(12.5, 5.5),
+            entity_mod.Enemy(2.5, 7.5),
+            entity_mod.Enemy(10.5, 2.5),
+            entity_mod.Enemy(14.5, 12.5),
+            entity_mod.Enemy(6.5, 13.5)
+        ];
+        self.fireballs = [];
+        self.game_state = "PLAYING";
+    }
+
+    fn run(self) {
+        while (!rl.WindowShouldClose()) {
+            var dt = rl.GetFrameTime();
+
+            if (rl.IsKeyPressed(rl.KEY_F11) or rl.IsKeyPressed(rl.KEY_F)) {
+                rl.ToggleFullscreen();
+            }
+
+            if (self.game_state != "PLAYING" and rl.IsKeyPressed(rl.KEY_R)) {
+                self.reset_game();
+            }
+
+            if (self.game_state == "PLAYING") {
+                self.player.update(dt);
+                self.weapon.update(dt);
+
+                if (map.is_exit(self.player.x, self.player.y)) {
+                    self.game_state = "VICTORY";
+                }
+
+                if (self.weapon.health <= 0.0) {
+                    self.game_state = "GAME_OVER";
+                }
+
+                for (var enemy in self.enemies) {
+                    enemy.update(self.player, dt, self.weapon, self.fireballs);
+                }
+
+                for (var fb in self.fireballs) {
+                    fb.update(self.player, dt, self.weapon);
+                }
+
+                if (self.weapon.just_fired) {
+                    for (var enemy in self.enemies) {
+                        if (enemy.alive) {
+                            var dx = enemy.x - self.player.x;
+                            var dy = enemy.y - self.player.y;
+
+                            var depth = dx * math.cos(self.player.angle) + dy * math.sin(self.player.angle);
+                            var perp = dy * math.cos(self.player.angle) - dx * math.sin(self.player.angle);
+
+                            if (depth > 0.5 and perp.abs() < 0.6) {
+                                enemy.health -= 1;
+                                if (enemy.health <= 0) {
+                                    enemy.alive = false;
+                                    echo "Imp slain!";
+                                }
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            rl.BeginDrawing();
+            rl.ClearBackground([0, 0, 0, 255]);
+
+            var z_buffer = raycaster.render_frame(self.player, self.wall_texture);
+
+            for (var fb in self.fireballs) {
+                fb.draw(self.player, z_buffer);
+            }
+
+            for (var enemy in self.enemies) {
+                enemy.draw(self.player, z_buffer);
+            }
+
+            minimap_mod.render_minimap(self.player);
+            self.weapon.draw();
+            hud_mod.draw_status_bar(self.weapon);
+
+            if (self.game_state == "GAME_OVER") {
+                hud_mod.draw_game_over_screen();
+            } else if (self.game_state == "VICTORY") {
+                hud_mod.draw_victory_screen();
+            }
+
+            rl.DrawFPS(10, 10);
+            rl.EndDrawing();
+        }
+
+        rl.UnloadTexture(self.wall_texture);
+        rl.CloseWindow();
+        echo "Kyro Doom Engine shut down cleanly.";
+    }
+}

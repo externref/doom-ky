@@ -1,0 +1,18 @@
+var rl = use("doom/game/raylib.ky");
+var map = use("doom/environment/map.ky");
+
+fn render_minimap(player) {
+    var tile_size = 8;
+    for (var r = 0; r < 16; r += 1) {
+        for (var c = 0; c < 16; c += 1) {
+            var cell = map.MAP[r][c];
+            if (cell > 0) {
+                var map_color = [120, 30, 25, 255];
+                if (cell == 5) { map_color = [0, 255, 255, 255]; }
+
+                rl.DrawRectangle(c * tile_size, r * tile_size, tile_size - 1, tile_size - 1, map_color);
+            }
+        }
+    }
+    rl.DrawRectangle((player.x * tile_size - 2).floor(), (player.y * tile_size - 2).floor(), 4, 4, [255, 255, 0, 255]);
+}

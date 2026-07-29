@@ -1,0 +1,51 @@
+var math = use("lib:math");
+var rl = use("doom/game/raylib.ky");
+var map = use("doom/environment/map.ky");
+
+class Player {
+    fn __init__(self, x, y, angle) {
+        self.x = x;
+        self.y = y;
+        self.angle = angle;
+        self.fov = math.PI / 3.0;
+        self.move_speed = 3.5;
+        self.rot_speed = 2.5;
+    }
+
+    fn update(self, dt) {
+        if (rl.IsKeyDown(rl.KEY_LEFT) or rl.IsKeyDown(rl.KEY_A)) {
+            self.angle -= self.rot_speed * dt;
+        }
+        if (rl.IsKeyDown(rl.KEY_RIGHT) or rl.IsKeyDown(rl.KEY_D)) {
+            self.angle += self.rot_speed * dt;
+        }
+
+        var cos_a = math.cos(self.angle);
+        var sin_a = math.sin(self.angle);
+
+        var move_step = self.move_speed * dt;
+        var margin = 0.3;
+
+        if (rl.IsKeyDown(rl.KEY_W) or rl.IsKeyDown(rl.KEY_UP)) {
+            var check_x = self.x + cos_a * margin;
+            var check_y = self.y + sin_a * margin;
+
+            if (!map.is_wall(check_x, self.y)) { self.x += cos_a * move_step; }
+            if (!map.is_wall(self.x, check_y)) { self.y += sin_a * move_step; }
+        }
+
+        if (rl.IsKeyDown(rl.KEY_S) or rl.IsKeyDown(rl.KEY_DOWN)) {
+            var check_x = self.x - cos_a * margin;
+            var check_y = self.y - sin_a * margin;
+
+            if (!map.is_wall(check_x, self.y)) { self.x -= cos_a * move_step; }
+            if (!map.is_wall(self.x, check_y)) { self.y -= sin_a * move_step; }
+        }
+
+        if (rl.IsKeyPressed(rl.KEY_E)) {
+            var door_x = self.x + cos_a * 1.2;
+            var door_y = self.y + sin_a * 1.2;
+            map.try_open_door(door_x, door_y);
+        }
+    }
+}

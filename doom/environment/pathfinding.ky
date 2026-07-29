@@ -1,0 +1,57 @@
+var map = use("doom/environment/map.ky");
+
+fn find_next_step(start_x, start_y, target_x, target_y) {
+    var sx = start_x.floor();
+    var sy = start_y.floor();
+    var tx = target_x.floor();
+    var ty = target_y.floor();
+
+    if (sx == tx and sy == ty) {
+        return [target_x, target_y];
+    }
+
+    var queue = [];
+    var visited = {};
+
+    var dirs = [
+        [0, -1], [0, 1], [-1, 0], [1, 0]
+    ];
+
+    for (var dir in dirs) {
+        var nx = sx + dir[0];
+        var ny = sy + dir[1];
+        if (!map.is_wall(nx + 0.5, ny + 0.5)) {
+            queue.push([nx, ny, nx, ny]);
+            var key = "${nx}_${ny}";
+            visited[key] = true;
+        }
+    }
+
+    var next_tile = [sx, sy];
+
+    while (queue.len() > 0) {
+        var current = queue.remove(0);
+        var cx = current[0];
+        var cy = current[1];
+        var f_x = current[2];
+        var f_y = current[3];
+
+        if (cx == tx and cy == ty) {
+            next_tile = [f_x, f_y];
+            break;
+        }
+
+        for (var dir in dirs) {
+            var nx = cx + dir[0];
+            var ny = cy + dir[1];
+            var key = "${nx}_${ny}";
+
+            if (!visited.has_key(key) and !map.is_wall(nx + 0.5, ny + 0.5)) {
+                visited[key] = true;
+                queue.push([nx, ny, f_x, f_y]);
+            }
+        }
+    }
+
+    return [next_tile[0] + 0.5, next_tile[1] + 0.5];
+}

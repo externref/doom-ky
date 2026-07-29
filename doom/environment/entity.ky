@@ -1,0 +1,197 @@
+var math = use("lib:math");
+var config = use("doom/game/config.ky");
+var rl = use("doom/game/raylib.ky");
+var map = use("doom/environment/map.ky");
+var pathfinding = use("doom/environment/pathfinding.ky");
+
+class Fireball {
+    fn __init__(self, x, y, target_x, target_y) {
+        self.x = x;
+        self.y = y;
+        var dx = target_x - x;
+        var dy = target_y - y;
+        var dist = (dx * dx + dy * dy).sqrt();
+        if (dist < 0.1) { dist = 0.1; }
+
+        self.vx = (dx / dist) * 3.2;
+        self.vy = (dy / dist) * 3.2;
+        self.active = true;
+    }
+
+    fn update(self, player, dt, weapon) {
+        if (!self.active) { return; }
+
+        self.x += self.vx * dt;
+        self.y += self.vy * dt;
+
+        var dx = player.x - self.x;
+        var dy = player.y - self.y;
+        var dist = (dx * dx + dy * dy).sqrt();
+
+        if (dist < 0.4) {
+            weapon.take_damage(20.0);
+            self.active = false;
+        }
+
+        if (map.is_wall(self.x, self.y)) {
+            self.active = false;
+        }
+    }
+
+    fn draw(self, player, z_buffer) {
+        if (!self.active) { return; }
+
+        var dx = self.x - player.x;
+        var dy = self.y - player.y;
+
+        var cos_a = math.cos(player.angle);
+        var sin_a = math.sin(player.angle);
+
+        var depth = dx * cos_a + dy * sin_a;
+        if (depth < 0.3) { return; }
+
+        var perp = dy * cos_a - dx * sin_a;
+        var view_h = config.VIEW_HEIGHT;
+
+        var screen_x = (config.SCREEN_WIDTH / 2.0) + (perp / depth) * (config.SCREEN_WIDTH / 1.5);
+        var fb_sz = (view_h / depth * 0.22).floor();
+
+        var top_y = (view_h / 2.0) - (fb_sz / 2.0);
+        var left_x = screen_x - (fb_sz / 2.0);
+
+        var center_ray = (screen_x / config.RAY_WIDTH).floor();
+
+        if (center_ray >= 0 and center_ray < config.NUM_RAYS) {
+            if (depth > z_buffer[center_ray]) { return; }
+        }
+
+        if (left_x + fb_sz > 0 and left_x < config.SCREEN_WIDTH) {
+            rl.DrawRectangle(left_x.floor(), top_y.floor(), fb_sz, fb_sz, [255, 120, 0, 255]);
+            var core_sz = (fb_sz * 0.6).floor();
+            if (core_sz < 1) { core_sz = 1; }
+            rl.DrawRectangle((left_x + fb_sz * 0.2).floor(), (top_y + fb_sz * 0.2).floor(), core_sz, core_sz, [255, 240, 80, 255]);
+        }
+    }
+}
+
+class Enemy {
+    fn __init__(self, x, y) {
+        self.x = x;
+        self.y = y;
+        self.alive = true;
+        self.health = 2;
+        self.speed = 1.0;
+        self.shoot_timer = 2.5;
+
+        self.wp_x = x;
+        self.wp_y = y;
+        self.path_timer = 0.0;
+    }
+
+    fn update(self, player, dt, weapon, fireballs) {
+        if (!self.alive or weapon.health <= 0.0) { return; }
+
+        var dx = player.x - self.x;
+        var dy = player.y - self.y;
+        var dist = (dx * dx + dy * dy).sqrt();
+
+        if (dist > 0.8 and dist < 10.0) {
+            self.path_timer -= dt;
+            if (self.path_timer <= 0.0) {
+                self.path_timer = 0.35;
+                var next_wp = pathfinding.find_next_step(self.x, self.y, player.x, player.y);
+                self.wp_x = next_wp[0];
+                self.wp_y = next_wp[1];
+            }
+
+            var wdx = self.wp_x - self.x;
+            var wdy = self.wp_y - self.y;
+            var wdist = (wdx * wdx + wdy * wdy).sqrt();
+
+            if (wdist > 0.1) {
+                var step_x = (wdx / wdist) * self.speed * dt;
+                var step_y = (wdy / wdist) * self.speed * dt;
+
+                if (!map.is_wall(self.x + step_x, self.y)) { self.x += step_x; }
+                if (!map.is_wall(self.x, self.y + step_y)) { self.y += step_y; }
+            }
+        }
+
+        if (dist > 1.5 and dist < 7.0) {
+            self.shoot_timer -= dt;
+            if (self.shoot_timer <= 0.0) {
+                self.shoot_timer = 2.5;
+                fireballs.push(Fireball(self.x, self.y, player.x, player.y));
+            }
+        }
+
+        if (dist <= 0.8) {
+            weapon.take_damage(30.0 * dt);
+        }
+    }
+
+    fn draw(self, player, z_buffer) {
+        var dx = self.x - player.x;
+        var dy = self.y - player.y;
+
+        var cos_a = math.cos(player.angle);
+        var sin_a = math.sin(player.angle);
+
+        var depth = dx * cos_a + dy * sin_a;
+        if (depth < 0.3) { return; }
+
+        var perp = dy * cos_a - dx * sin_a;
+        var view_h = config.VIEW_HEIGHT;
+
+        var screen_x = (config.SCREEN_WIDTH / 2.0) + (perp / depth) * (config.SCREEN_WIDTH / 1.5);
+        var sprite_size = (view_h / depth * 0.55).floor();
+
+        var top_y = (view_h / 2.0) + (view_h / (depth * 2.5)) - sprite_size;
+        var left_x = screen_x - (sprite_size / 2.0);
+
+        var center_ray = (screen_x / config.RAY_WIDTH).floor();
+
+        if (center_ray >= 0 and center_ray < config.NUM_RAYS) {
+            if (depth > z_buffer[center_ray]) {
+                return;
+            }
+        }
+
+        if (left_x + sprite_size > 0 and left_x < config.SCREEN_WIDTH) {
+            if (self.alive) {
+                var lx = left_x.floor();
+                var ty = top_y.floor();
+                var sz = sprite_size;
+
+                rl.DrawRectangle(lx, (ty + sz * 0.85).floor(), sz, (sz * 0.15).floor(), [0, 0, 0, 120]);
+
+                rl.DrawRectangle((lx + sz * 0.25).floor(), ty, (sz * 0.50).floor(), (sz * 0.35).floor(), [160, 80, 25, 255]);
+                rl.DrawRectangle((lx + sz * 0.15).floor(), ty, (sz * 0.12).floor(), (sz * 0.20).floor(), [50, 25, 10, 255]);
+                rl.DrawRectangle((lx + sz * 0.73).floor(), ty, (sz * 0.12).floor(), (sz * 0.20).floor(), [50, 25, 10, 255]);
+
+                var eye_sz = (sz * 0.12).floor();
+                if (eye_sz < 1) { eye_sz = 1; }
+
+                rl.DrawRectangle((lx + sz * 0.30).floor(), (ty + sz * 0.12).floor(), eye_sz, eye_sz, [255, 220, 0, 255]);
+                rl.DrawRectangle((lx + sz * 0.58).floor(), (ty + sz * 0.12).floor(), eye_sz, eye_sz, [255, 220, 0, 255]);
+
+                rl.DrawRectangle((lx + sz * 0.35).floor(), (ty + sz * 0.24).floor(), (sz * 0.30).floor(), (sz * 0.08).floor(), [120, 20, 20, 255]);
+
+                rl.DrawRectangle((lx + sz * 0.20).floor(), (ty + sz * 0.35).floor(), (sz * 0.60).floor(), (sz * 0.45).floor(), [140, 70, 20, 255]);
+                rl.DrawRectangle((lx + sz * 0.05).floor(), (ty + sz * 0.38).floor(), (sz * 0.15).floor(), (sz * 0.35).floor(), [120, 60, 15, 255]);
+                rl.DrawRectangle((lx + sz * 0.80).floor(), (ty + sz * 0.38).floor(), (sz * 0.15).floor(), (sz * 0.35).floor(), [120, 60, 15, 255]);
+
+                rl.DrawRectangle((lx + sz * 0.25).floor(), (ty + sz * 0.80).floor(), (sz * 0.20).floor(), (sz * 0.20).floor(), [110, 55, 15, 255]);
+                rl.DrawRectangle((lx + sz * 0.55).floor(), (ty + sz * 0.80).floor(), (sz * 0.20).floor(), (sz * 0.20).floor(), [110, 55, 15, 255]);
+            } else {
+                var lx = left_x.floor();
+                var ty = (top_y + sprite_size * 0.65).floor();
+                var cw = sprite_size;
+                var ch = (sprite_size * 0.35).floor();
+
+                rl.DrawRectangle(lx, ty, cw, ch, [140, 30, 20, 255]);
+                rl.DrawRectangle((lx + cw * 0.20).floor(), ty + 4, (cw * 0.60).floor(), (ch * 0.50).floor(), [100, 50, 15, 255]);
+            }
+        }
+    }
+}

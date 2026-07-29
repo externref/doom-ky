@@ -1,0 +1,45 @@
+var ffi = use("std:ffi");
+var rl = ffi.load("raylib.dll");
+
+var Color = ["u8", "u8", "u8", "u8"];
+var Vector2 = ["float", "float"];
+var Rectangle = ["float", "float", "float", "float"];
+var Texture2D = ["int", "int", "int", "int", "int"];
+
+var InitWindow = rl.bind("InitWindow", "void", ["int", "int", "string"]);
+var WindowShouldClose = rl.bind("WindowShouldClose", "bool", []);
+var CloseWindow = rl.bind("CloseWindow", "void", []);
+var SetTargetFPS = rl.bind("SetTargetFPS", "void", ["int"]);
+var ToggleFullscreen = rl.bind("ToggleFullscreen", "void", []);
+var BeginDrawing = rl.bind("BeginDrawing", "void", []);
+var EndDrawing = rl.bind("EndDrawing", "void", []);
+var ClearBackground = rl.bind("ClearBackground", "void", [Color]);
+var DrawRectangle = rl.bind("DrawRectangle", "void", ["int", "int", "int", "int", Color]);
+var DrawRectangleV = rl.bind("DrawRectangleV", "void", [Vector2, Vector2, Color]);
+var DrawFPS = rl.bind("DrawFPS", "int", ["int", "int"]);
+
+var LoadTexture = rl.bind("LoadTexture", Texture2D, ["string"]);
+var UnloadTexture = rl.bind("UnloadTexture", "void", [Texture2D]);
+var DrawTexturePro = rl.bind("DrawTexturePro", "void", [
+    Texture2D, Rectangle, Rectangle, Vector2, "float", Color
+]);
+
+var IsKeyDown = rl.bind("IsKeyDown", "bool", ["int"]);
+var IsKeyPressed = rl.bind("IsKeyPressed", "bool", ["int"]);
+var IsMouseButtonPressed = rl.bind("IsMouseButtonPressed", "bool", ["int"]);
+var GetFrameTime = rl.bind("GetFrameTime", "float", []);
+
+var KEY_W = 87;
+var KEY_S = 83;
+var KEY_A = 65;
+var KEY_D = 68;
+var KEY_E = 69;
+var KEY_F = 70;
+var KEY_R = 82;
+var KEY_F11 = 300;
+var KEY_LEFT = 263;
+var KEY_RIGHT = 262;
+var KEY_UP = 265;
+var KEY_DOWN = 264;
+var KEY_SPACE = 32;
+var MOUSE_BUTTON_LEFT = 0;

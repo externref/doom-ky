@@ -1,0 +1,93 @@
+var rl = use("doom/game/raylib.ky");
+var config = use("doom/game/config.ky");
+
+class Weapon {
+    fn __init__(self) {
+        self.recoil = 0.0;
+        self.flash_timer = 0.0;
+        self.just_fired = false;
+
+        self.clip = 8;
+        self.max_clip = 8;
+        self.reserve_ammo = 42;
+        self.health = 100.0;
+        self.armor = 25.0;
+        self.no_ammo_msg = 0.0;
+    }
+
+    fn take_damage(self, amount) {
+        self.health -= amount;
+        if (self.health < 0.0) { self.health = 0.0; }
+    }
+
+    fn update(self, dt) {
+        self.just_fired = false;
+
+        if (rl.IsKeyPressed(rl.KEY_R) and self.clip < self.max_clip and self.reserve_ammo > 0) {
+            var needed = self.max_clip - self.clip;
+            if (self.reserve_ammo >= needed) {
+                self.reserve_ammo -= needed;
+                self.clip += needed;
+            } else {
+                self.clip += self.reserve_ammo;
+                self.reserve_ammo = 0;
+            }
+        }
+
+        if (rl.IsMouseButtonPressed(rl.MOUSE_BUTTON_LEFT) or rl.IsKeyPressed(rl.KEY_SPACE)) {
+            if (self.clip > 0 and self.flash_timer <= 0.0) {
+                self.recoil = 40.0;
+                self.flash_timer = 0.12;
+                self.clip -= 1;
+                self.just_fired = true;
+            } else if (self.clip == 0) {
+                self.no_ammo_msg = 1.0;
+            }
+        }
+
+        if (self.recoil > 0.0) {
+            self.recoil -= 180.0 * dt;
+            if (self.recoil < 0.0) { self.recoil = 0.0; }
+        }
+
+        if (self.flash_timer > 0.0) {
+            self.flash_timer -= dt;
+        }
+
+        if (self.no_ammo_msg > 0.0) {
+            self.no_ammo_msg -= dt;
+        }
+    }
+
+    fn draw(self) {
+        var center_x = config.SCREEN_WIDTH / 2;
+        var view_h = config.VIEW_HEIGHT;
+        var base_y = view_h + (self.recoil).floor();
+
+        if (self.flash_timer > 0.0) {
+            var flash_x = center_x - 50;
+            var flash_y = base_y - 170;
+            rl.DrawRectangle(flash_x - 30, flash_y - 30, 160, 110, [255, 230, 40, 255]);
+            rl.DrawRectangle(flash_x - 10, flash_y - 10, 120, 70, [255, 255, 220, 255]);
+        }
+
+        var gun_w = 140;
+        var gun_h = 160;
+        var gun_x = center_x - (gun_w / 2);
+        var gun_y = base_y - gun_h;
+
+        rl.DrawRectangle(gun_x + 35, gun_y - 40, 30, 110, [45, 45, 50, 255]);
+        rl.DrawRectangle(gun_x + 75, gun_y - 40, 30, 110, [40, 40, 45, 255]);
+        rl.DrawRectangle(gun_x + 40, gun_y - 40, 20, 10, [15, 15, 20, 255]);
+        rl.DrawRectangle(gun_x + 80, gun_y - 40, 20, 10, [15, 15, 20, 255]);
+        rl.DrawRectangle(gun_x + 65, gun_y - 40, 10, 110, [75, 75, 85, 255]);
+
+        rl.DrawRectangle(gun_x + 20, gun_y + 40, 100, 90, [35, 35, 40, 255]);
+        rl.DrawRectangle(gun_x + 30, gun_y + 90, 80, 70, [120, 60, 25, 255]);
+
+        var cx = center_x;
+        var cy = view_h / 2;
+        rl.DrawRectangle(cx - 10, cy - 1, 20, 2, [0, 255, 0, 220]);
+        rl.DrawRectangle(cx - 1, cy - 10, 2, 20, [0, 255, 0, 220]);
+    }
+}

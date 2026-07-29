@@ -1,0 +1,112 @@
+var math = use("lib:math");
+var config = use("doom/game/config.ky");
+var rl = use("doom/game/raylib.ky");
+var map = use("doom/environment/map.ky");
+
+fn render_frame(player, wall_texture) {
+    var view_h = config.VIEW_HEIGHT;
+    var z_buffer = [];
+
+    rl.DrawRectangle(0, 0, config.SCREEN_WIDTH, view_h / 2, config.CEILING_COLOR);
+    rl.DrawRectangle(0, view_h / 2, config.SCREEN_WIDTH, view_h / 2, config.FLOOR_COLOR);
+
+    var half_fov = player.fov / 2.0;
+    var start_angle = player.angle - half_fov;
+    var angle_step = player.fov / config.NUM_RAYS;
+
+    var tex_w = wall_texture[1];
+    var tex_h = wall_texture[2];
+
+    for (var i = 0; i < config.NUM_RAYS; i += 1) {
+        var ray_angle = start_angle + (i * angle_step);
+        var ray_dir_x = math.cos(ray_angle);
+        var ray_dir_y = math.sin(ray_angle);
+
+        var map_x = (player.x).floor();
+        var map_y = (player.y).floor();
+
+        var delta_dist_x = 1000000000.0;
+        if (ray_dir_x != 0.0) { delta_dist_x = (1.0 / ray_dir_x).abs(); }
+
+        var delta_dist_y = 1000000000.0;
+        if (ray_dir_y != 0.0) { delta_dist_y = (1.0 / ray_dir_y).abs(); }
+
+        var step_x = 0;
+        var step_y = 0;
+        var side_dist_x = 0.0;
+        var side_dist_y = 0.0;
+
+        if (ray_dir_x < 0.0) {
+            step_x = -1;
+            side_dist_x = (player.x - map_x) * delta_dist_x;
+        } else {
+            step_x = 1;
+            side_dist_x = (map_x + 1.0 - player.x) * delta_dist_x;
+        }
+
+        if (ray_dir_y < 0.0) {
+            step_y = -1;
+            side_dist_y = (player.y - map_y) * delta_dist_y;
+        } else {
+            step_y = 1;
+            side_dist_y = (map_y + 1.0 - player.y) * delta_dist_y;
+        }
+
+        var hit = false;
+        var side = 0;
+
+        while (!hit) {
+            if (side_dist_x < side_dist_y) {
+                side_dist_x += delta_dist_x;
+                map_x += step_x;
+                side = 0;
+            } else {
+                side_dist_y += delta_dist_y;
+                map_y += step_y;
+                side = 1;
+            }
+
+            if (map_y >= 0 and map_y < 16 and map_x >= 0 and map_x < 16) {
+                if (map.MAP[map_y][map_x] > 0) {
+                    hit = true;
+                }
+            } else {
+                hit = true;
+            }
+        }
+
+        var perp_wall_dist = (side == 0) ? (side_dist_x - delta_dist_x) : (side_dist_y - delta_dist_y);
+        perp_wall_dist = perp_wall_dist * math.cos(ray_angle - player.angle);
+
+        if (perp_wall_dist < 0.1) { perp_wall_dist = 0.1; }
+
+        z_buffer.push(perp_wall_dist);
+
+        var wall_height = ((view_h / perp_wall_dist)).floor();
+        var wall_top = ((view_h / 2) - (wall_height / 2)).floor();
+
+        var wall_exact_x = (side == 0) ? (player.y + perp_wall_dist * ray_dir_y) : (player.x + perp_wall_dist * ray_dir_x);
+        wall_exact_x -= wall_exact_x.floor();
+
+        var tex_x = (wall_exact_x * tex_w).floor();
+        if (tex_x < 0) { tex_x = 0; }
+        if (tex_x >= tex_w) { tex_x = tex_w - 1; }
+
+        if (side == 0 and ray_dir_x > 0.0) { tex_x = tex_w - tex_x - 1; }
+        if (side == 1 and ray_dir_y < 0.0) { tex_x = tex_w - tex_x - 1; }
+
+        var base_brightness = 255.0;
+        if (side == 1) { base_brightness = 170.0; }
+
+        var brightness = (base_brightness / (1.0 + perp_wall_dist * perp_wall_dist * 0.08)).clamp(15, 255);
+        var tint_color = [brightness, brightness, brightness, 255];
+
+        var source_rec = [tex_x * 1.0, 0.0, 1.0, tex_h * 1.0];
+        var dest_rec = [(i * config.RAY_WIDTH).floor() * 1.0, wall_top * 1.0, config.RAY_WIDTH.ceil() * 1.0, wall_height * 1.0];
+        var origin = [0.0, 0.0];
+
+        rl.DrawTexturePro(wall_texture, source_rec, dest_rec, origin, 0.0, tint_color);
+    }
+
+    return z_buffer;
+}

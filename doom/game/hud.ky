@@ -1,0 +1,110 @@
+var util = use("std:util");
+var config = use("doom/game/config.ky");
+var rl = use("doom/game/raylib.ky");
+var font = use("doom/game/font.ky");
+
+
+fn draw_status_bar(weapon) {
+    var bar_y = config.VIEW_HEIGHT;
+    var bar_h = 60;
+
+    rl.DrawRectangle(0, bar_y, config.SCREEN_WIDTH, bar_h, config.HUD_BG_COLOR);
+    rl.DrawRectangle(0, bar_y, config.SCREEN_WIDTH, 4, config.HUD_BORDER_COLOR);
+
+    rl.DrawRectangle(160, bar_y + 6, 4, bar_h - 12, [15, 18, 25, 255]);
+    rl.DrawRectangle(320, bar_y + 6, 4, bar_h - 12, [15, 18, 25, 255]);
+    rl.DrawRectangle(480, bar_y + 6, 4, bar_h - 12, [15, 18, 25, 255]);
+    rl.DrawRectangle(640, bar_y + 6, 4, bar_h - 12, [15, 18, 25, 255]);
+
+    rl.DrawRectangle(20, bar_y + 10, 120, 40, [12, 14, 20, 255]);
+    font.draw_pixel_text("AMMO", 25, bar_y + 12, 1, config.YELLOW_TEXT);
+
+    var ammo_str = util.to_string(weapon.clip) + "/" + util.to_string(weapon.reserve_ammo);
+    font.draw_pixel_text(ammo_str, 25, bar_y + 22, 2, config.YELLOW_TEXT);
+
+    for (var b = 0; b < weapon.clip; b += 1) {
+        var bx = 82 + (b * 5);
+        var by = bar_y + 16;
+        rl.DrawRectangle(bx, by, 3, 14, [255, 210, 0, 255]);
+        rl.DrawRectangle(bx, by - 2, 3, 2, [220, 30, 30, 255]);
+    }
+
+    // 2. HEALTH PANEL
+    rl.DrawRectangle(180, bar_y + 10, 120, 40, [12, 14, 20, 255]);
+    var hp_str = util.to_string(weapon.health.floor()) + "%";
+    font.draw_pixel_text("HEALTH", 185, bar_y + 12, 1, config.RED_TEXT);
+    font.draw_pixel_text(hp_str, 185, bar_y + 22, 2, [255, 255, 255, 255]);
+
+    var hp_fill = ((weapon.health / 100.0) * 110.0).clamp(0, 110).floor();
+    var hp_color = (weapon.health > 30.0) ? config.GREEN_TEXT : config.RED_TEXT;
+    rl.DrawRectangle(185, bar_y + 36, hp_fill, 8, hp_color);
+
+    // 3. DOOMGUY FACE
+    var face_x = 370;
+    var face_y = bar_y + 8;
+    rl.DrawRectangle(face_x, face_y, 60, 44, [12, 14, 20, 255]);
+
+    var skin = (weapon.health < 40.0) ? [190, 80, 80, 255] : [210, 150, 110, 255];
+    rl.DrawRectangle(face_x + 10, face_y + 8, 40, 30, skin);
+    rl.DrawRectangle(face_x + 10, face_y + 4, 40, 8, [80, 45, 18, 255]);
+    rl.DrawRectangle(face_x + 16, face_y + 16, 8, 6, [255, 255, 255, 255]);
+    rl.DrawRectangle(face_x + 34, face_y + 16, 8, 6, [255, 255, 255, 255]);
+    rl.DrawRectangle(face_x + 18, face_y + 18, 4, 4, [10, 10, 10, 255]);
+    rl.DrawRectangle(face_x + 36, face_y + 18, 4, 4, [10, 10, 10, 255]);
+    rl.DrawRectangle(face_x + 22, face_y + 28, 16, 4, [140, 50, 40, 255]);
+
+    if (weapon.health < 40.0) {
+        rl.DrawRectangle(face_x + 12, face_y + 14, 6, 12, [180, 20, 20, 255]);
+    }
+
+    // 4. ARMOR PANEL
+    rl.DrawRectangle(500, bar_y + 10, 120, 40, [12, 14, 20, 255]);
+    var armor_str = util.to_string(weapon.armor.floor()) + "%";
+    font.draw_pixel_text("ARMOR", 505, bar_y + 12, 1, config.BLUE_TEXT);
+    font.draw_pixel_text(armor_str, 505, bar_y + 22, 2, config.YELLOW_TEXT);
+
+    var armor_fill = ((weapon.armor / 100.0) * 110.0).clamp(0, 110).floor();
+    rl.DrawRectangle(505, bar_y + 36, armor_fill, 8, config.BLUE_TEXT);
+}
+
+fn draw_victory_screen() {
+    var view_h = config.VIEW_HEIGHT;
+    rl.DrawRectangle(0, 0, config.SCREEN_WIDTH, view_h, [0, 120, 40, 200]);
+
+    var center_x = config.SCREEN_WIDTH / 2;
+    var center_y = view_h / 2 - 20;
+
+    rl.DrawRectangle(center_x - 40, center_y + 50, 80, 20, [180, 140, 20, 255]);
+    rl.DrawRectangle(center_x - 20, center_y + 30, 40, 20, [220, 180, 30, 255]);
+
+    rl.DrawRectangle(center_x - 50, center_y - 40, 100, 70, [255, 215, 0, 255]);
+    rl.DrawRectangle(center_x - 40, center_y - 30, 80, 50, [255, 235, 80, 255]);
+
+    rl.DrawRectangle(center_x - 70, center_y - 30, 20, 40, [220, 180, 30, 255]);
+    rl.DrawRectangle(center_x + 50, center_y - 30, 20, 40, [220, 180, 30, 255]);
+
+    rl.DrawRectangle(center_x - 10, center_y - 15, 20, 20, [255, 255, 255, 255]);
+
+    font.draw_pixel_text("MISSION ACCOMPLISHED", center_x - 130, center_y - 80, 3, [255, 220, 0, 255]);
+    font.draw_pixel_text("PRESS R TO RESTART", center_x - 100, view_h - 40, 2, [255, 255, 255, 255]);
+}
+
+fn draw_game_over_screen() {
+    var view_h = config.VIEW_HEIGHT;
+    rl.DrawRectangle(0, 0, config.SCREEN_WIDTH, view_h, [160, 10, 10, 210]);
+
+    var center_x = config.SCREEN_WIDTH / 2;
+    var center_y = view_h / 2 - 20;
+
+    rl.DrawRectangle(center_x - 40, center_y - 60, 80, 60, [240, 220, 220, 255]);
+    rl.DrawRectangle(center_x - 28, center_y - 40, 20, 20, [40, 5, 5, 255]);
+    rl.DrawRectangle(center_x + 8, center_y - 40, 20, 20, [40, 5, 5, 255]);
+    rl.DrawRectangle(center_x - 6, center_y - 12, 12, 14, [40, 5, 5, 255]);
+    rl.DrawRectangle(center_x - 26, center_y, 52, 25, [220, 200, 200, 255]);
+    rl.DrawRectangle(center_x - 20, center_y + 10, 8, 12, [40, 5, 5, 255]);
+    rl.DrawRectangle(center_x - 4, center_y + 10, 8, 12, [40, 5, 5, 255]);
+    rl.DrawRectangle(center_x + 12, center_y + 10, 8, 12, [40, 5, 5, 255]);
+
+    font.draw_pixel_text("YOU DIED", center_x - 50, center_y - 100, 3, [255, 255, 255, 255]);
+    font.draw_pixel_text("PRESS R TO RESTART", center_x - 100, view_h - 40, 2, [255, 220, 0, 255]);
+}

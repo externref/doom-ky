@@ -1,0 +1,10 @@
+var engine_mod = use("doom");
+
+fn main() {
+    var engine = engine_mod.GameEngine();
+    engine.run();
+}
+
+if(__name__=="__main__"){
+    main();
+}
